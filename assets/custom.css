@@ -1,0 +1,901 @@
+﻿/* ============================================
+   Sales Analytics Dashboard - Custom CSS
+   Dark Theme with Modern Design
+   ============================================ */
+
+/* Root Variables */
+:root {
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-tertiary: #334155;
+    --text-primary: #f8fafc;
+    --text-secondary: #e2e8f0;
+    --text-muted: #94a3b8;
+    --accent-purple: #6366f1;
+    --accent-blue: #3b82f6;
+    --accent-cyan: #06b6d4;
+    --accent-green: #10b981;
+    --accent-amber: #f59e0b;
+    --accent-red: #ef4444;
+    --border-color: #334155;
+    --card-radius: 20px;
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Global Styles */
+body {
+    background-color: var(--bg-primary) !important;
+    color: var(--text-primary) !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+.main-container {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--bg-primary);
+    padding-bottom: 2rem;
+}
+
+/* ============================================
+   NAVIGATION
+   ============================================ */
+
+.navbar-custom {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important;
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(10px);
+}
+
+.navbar-brand-custom {
+    font-weight: 800 !important;
+    font-size: 1.5rem !important;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.nav-link-custom {
+    font-weight: 500 !important;
+    padding: 0.5rem 1rem !important;
+    border-radius: 10px;
+    transition: var(--transition);
+    margin: 0 0.15rem;
+    color: var(--text-muted) !important;
+}
+
+.nav-link-custom:hover {
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--text-primary) !important;
+}
+
+.nav-link-custom.active {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%);
+    color: var(--accent-purple) !important;
+    font-weight: 600 !important;
+}
+
+/* ============================================
+   HERO SECTION (Home Page)
+   ============================================ */
+
+.hero-section {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+    border-radius: var(--card-radius);
+    border: 1px solid rgba(99, 102, 241, 0.1);
+}
+
+.page-card {
+    transition: var(--transition);
+    cursor: pointer;
+}
+
+.page-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    border-color: rgba(99, 102, 241, 0.3) !important;
+}
+
+/* ============================================
+   KPI CARDS
+   ============================================ */
+
+.kpi-card {
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+    min-height: 150px;
+}
+
+/* Center the KPI row and let cards grow to fill the screen */
+.kpi-row {
+    justify-content: center !important;
+    align-items: stretch;
+}
+
+.kpi-col {
+    flex: 1 1 0 !important;
+    min-width: 210px;
+    max-width: 300px;
+    display: flex;
+}
+
+.kpi-col > .card {
+    width: 100%;
+}
+
+.kpi-card .card-body {
+    padding: 1.75rem 1.5rem !important;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+/* Hover shadow on cards â€” same style/animation as .chart-card */
+.card {
+    transition: var(--transition);
+}
+
+.card:hover {
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+/* ===== Gradient stat cards â€” animations ===== */
+
+/* Entrance: fade + rise, staggered per card */
+@keyframes statEnter {
+    from { opacity: 0; transform: translateY(18px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Living gradient: slow pan/zoom of the gradient */
+@keyframes statShift {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Shimmer sweep across the card */
+@keyframes statShine {
+    0%   { transform: translateX(-120%) skewX(-18deg); }
+    60%, 100% { transform: translateX(240%) skewX(-18deg); }
+}
+
+.gradient-stat {
+    background: var(--stat-grad);
+    background-size: 220% 220%;
+    animation:
+        statEnter 0.6s cubic-bezier(0.22, 1, 0.36, 1) both,
+        statShift 8s ease-in-out infinite;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Stagger the three cards' entrance */
+.stats-row > .col:nth-child(2) .gradient-stat { animation-delay: 0.12s, 0s; }
+.stats-row > .col:nth-child(3) .gradient-stat { animation-delay: 0.24s, 0s; }
+
+/* Light sweep highlight */
+.gradient-stat::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 45%;
+    height: 100%;
+    background: linear-gradient(100deg, rgba(255,255,255,0) 0%,
+                rgba(255,255,255,0.28) 50%, rgba(255,255,255,0) 100%);
+    animation: statShine 5.5s ease-in-out infinite;
+    pointer-events: none;
+}
+
+/* Hover: lift + glow, plus value pop */
+.gradient-stat:hover {
+    transform: translateY(-6px) scale(1.02);
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.45),
+                0 0 0 1px rgba(255, 255, 255, 0.25) inset;
+    animation-play-state: running;
+}
+
+.gradient-stat:hover .card-body h3 {
+    animation: statPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes statPop {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.18); }
+    100% { transform: scale(1); }
+}
+
+.kpi-label {
+    display: block;
+    width: 100%;
+    text-align: center;
+}
+
+.kpi-mom {
+    margin-top: 6px;
+    font-size: 0.8rem;
+    line-height: 1.2;
+    min-height: 1.2rem;
+}
+
+.kpi-label {
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.mom-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.3;
+    font-size: 1rem;
+}
+
+.mom-arrow {
+    font-size: 0.72rem;
+}
+
+.table-date-badge {
+    display: inline-block;
+    padding: 0.35rem 0.9rem;
+    border-radius: 999px;
+    background: rgba(139, 92, 246, 0.15);
+    border: 1px solid rgba(139, 92, 246, 0.35);
+    color: #c4b5fd;
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.kpi-card h3 {
+    font-size: 1.2rem !important;
+}
+
+@media (max-width: 1400px) {
+    .kpi-col {
+        min-width: 190px;
+        max-width: 260px;
+    }
+}
+
+.kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent-purple), var(--accent-blue));
+    opacity: 0;
+    transition: var(--transition);
+}
+
+.kpi-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+}
+
+.kpi-card:hover::before {
+    opacity: 1;
+}
+
+/* ============================================
+   FILTER SECTION
+   ============================================ */
+
+.filter-card {
+    transition: var(--transition);
+}
+
+.filter-label {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Dropdown Styling */
+.dark-dropdown .Select-control {
+    background-color: #0f172a !important;
+    border: 1px solid #334155 !important;
+    border-radius: 12px !important;
+    color: #e2e8f0 !important;
+}
+
+.dark-dropdown .Select-value-label {
+    color: #e2e8f0 !important;
+}
+
+.dark-dropdown .Select-menu-outer {
+    background-color: #1e293b !important;
+    border: 1px solid #334155 !important;
+    border-radius: 12px !important;
+    margin-top: 4px;
+}
+
+.dark-dropdown .Select-option {
+    background-color: #1e293b !important;
+    color: #e2e8f0 !important;
+}
+
+.dark-dropdown .Select-option:hover {
+    background-color: #334155 !important;
+}
+
+.dark-dropdown .Select-option.is-selected {
+    background-color: rgba(99, 102, 241, 0.2) !important;
+    color: #6366f1 !important;
+}
+
+.dark-dropdown .Select-multi-value-wrapper {
+    background-color: #0f172a !important;
+}
+
+.dark-dropdown .Select-placeholder {
+    color: #64748b !important;
+}
+
+.dark-dropdown .Select-arrow {
+    border-color: #94a3b8 transparent transparent !important;
+}
+
+/* Download bar Category dropdown — guarantee the control & menu are clearly
+   visible on the dark card (contrast, height, and an elevated menu layer so it
+   is never hidden behind adjacent cards). */
+.dark-dropdown.category-download-dropdown {
+    position: relative;
+    z-index: 2000;
+}
+
+.dark-dropdown.category-download-dropdown .Select-control {
+    min-height: 38px;
+    height: auto;
+    display: flex;
+    align-items: center;
+    background-color: #0f172a !important;
+    border: 1px solid #475569 !important;
+}
+
+.dark-dropdown.category-download-dropdown .Select-value,
+.dark-dropdown.category-download-dropdown .Select-value-label,
+.dark-dropdown.category-download-dropdown .Select-placeholder {
+    color: #e2e8f0 !important;
+    line-height: 38px;
+}
+
+.dark-dropdown.category-download-dropdown .Select-menu-outer {
+    position: absolute;
+    z-index: 2147483000 !important;
+    max-height: 220px;
+    overflow-y: auto;
+    background-color: #1e293b !important;
+    border: 1px solid #475569 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+.dark-dropdown.category-download-dropdown .Select-option {
+    color: #e2e8f0 !important;
+    background-color: #1e293b !important;
+}
+
+.dark-dropdown.category-download-dropdown .Select-option:hover {
+    background-color: #334155 !important;
+}
+
+.dark-dropdown .Select-clear-zone {
+    color: #94a3b8 !important;
+}
+
+.dark-dropdown .Select-clear-zone:hover {
+    color: #ef4444 !important;
+}
+
+/* Ensure filter dropdowns are never clipped/hidden by their containers */
+.filter-card,
+.filter-card .card-body {
+    overflow: visible !important;
+}
+
+/* The page uses a 3D entrance animation (.anim-cards-page) that applies
+   transform-style: preserve-3d + perspective to every .card. That 3D transform
+   creates a stacking context that flattens/clips the absolutely-positioned
+   dropdown menus (they get hidden behind the card-body). Neutralize the 3D
+   effects on the filter card so its dropdowns float above everything. */
+.anim-cards-page .filter-card,
+.anim-cards-page .filter-card.card {
+    animation: none !important;
+    transform: none !important;
+    transform-style: flat !important;
+    perspective: none !important;
+    -webkit-perspective: none !important;
+}
+
+.filter-card .dark-dropdown,
+.filter-card .Select {
+    min-width: 0;
+    min-height: 38px;
+}
+
+.filter-card .dropdown-menu,
+.filter-card .Select-menu-outer,
+.dark-dropdown .Select-menu-outer {
+    z-index: 9999 !important;
+    max-width: none;
+}
+
+/* Keep the selected multi-value text visible instead of hiding it in narrow columns */
+.filter-card .Select-multi-value-wrapper {
+    overflow: visible !important;
+    white-space: normal !important;
+}
+
+.filter-card .Select-control {
+    min-height: 38px;
+    height: auto;
+}
+
+.filter-card .Select.is-open > .Select-control {
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2) !important;
+}
+
+/* Date Picker Styling */
+.dark-datepicker .SingleDatePickerInput {
+    background-color: #0f172a !important;
+    border: 2px solid #2563eb !important;
+    border-radius: 12px !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dark-datepicker .SingleDatePickerInput:hover {
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
+}
+
+.dark-datepicker .DateInput {
+    background: transparent !important;
+}
+
+.dark-datepicker .DateInput_input {
+    background-color: #0f172a !important;
+    color: #f8fafc !important;
+    border-radius: 12px !important;
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+    padding-top: 0.6rem !important;
+    padding-bottom: 0.6rem !important;
+    text-align: center !important;
+    letter-spacing: 0.02em !important;
+}
+
+.dark-datepicker .DateInput_input__focused {
+    border-bottom: 2px solid #3b82f6 !important;
+}
+
+/* Calendar popover */
+.dark-datepicker .CalendarDay__selected {
+    background: #2563eb !important;
+    border: 1px solid #2563eb !important;
+    color: #ffffff !important;
+}
+
+.dark-datepicker .CalendarDay__selected:hover {
+    background: #3b82f6 !important;
+}
+
+.dark-datepicker .CalendarMonth_caption {
+    color: #e2e8f0 !important;
+}
+
+/* ============================================
+   CHART CARDS
+   ============================================ */
+
+.chart-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--card-radius);
+    transition: var(--transition);
+}
+
+.chart-card:hover {
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+/* ============================================================
+   Sales Tax page â€” transitions + 3D animations (this page only)
+   Scoped under .anim-cards-page so other pages are unaffected.
+   ============================================================ */
+
+.anim-cards-page {
+    perspective: 1200px;
+}
+
+/* --- Entrance: staggered rise-in with 3D flip --- */
+.anim-cards-page .card {
+    animation: taxCardIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+    transform-style: preserve-3d;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.4s ease,
+                border-color 0.4s ease;
+}
+
+.anim-cards-page .kpi-col:nth-child(1) .card { animation-delay: 0.00s; }
+.anim-cards-page .kpi-col:nth-child(2) .card { animation-delay: 0.08s; }
+.anim-cards-page .kpi-col:nth-child(3) .card { animation-delay: 0.16s; }
+.anim-cards-page .kpi-col:nth-child(4) .card { animation-delay: 0.24s; }
+.anim-cards-page .kpi-col:nth-child(5) .card { animation-delay: 0.32s; }
+.anim-cards-page .kpi-col:nth-child(6) .card { animation-delay: 0.40s; }
+
+@keyframes taxCardIn {
+    from {
+        opacity: 0;
+        transform: translateY(35px) rotateX(-12deg) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) rotateX(0deg) scale(1);
+    }
+}
+
+/* --- Hover: 3D tilt/lift with colored glow --- */
+.anim-cards-page .card:hover {
+    transform: translateY(-8px) rotateX(3deg) scale(1.015);
+    box-shadow: 0 22px 45px rgba(0, 0, 0, 0.45),
+                0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+}
+
+/* --- KPI icon: slow floating 3D spin --- */
+.anim-cards-page .card .fas.fa-2x {
+    display: inline-block;
+    animation: taxIconFloat 4s ease-in-out infinite;
+    transition: transform 0.4s ease;
+}
+
+.anim-cards-page .card:hover .fas.fa-2x {
+    animation: taxIconSpin 0.9s cubic-bezier(0.4, 0, 0.2, 1) 1;
+}
+
+@keyframes taxIconFloat {
+    0%, 100% { transform: translateY(0) rotateY(0deg); }
+    50%      { transform: translateY(-5px) rotateY(18deg); }
+}
+
+@keyframes taxIconSpin {
+    from { transform: rotateY(0deg) scale(1); }
+    50%  { transform: rotateY(180deg) scale(1.2); }
+    to   { transform: rotateY(360deg) scale(1); }
+}
+
+/* --- KPI value: subtle pop on hover --- */
+.anim-cards-page .card h3 {
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.anim-cards-page .card:hover h3 {
+    transform: scale(1.12);
+    text-shadow: 0 0 18px rgba(255, 255, 255, 0.25);
+}
+
+/* ============================================
+   DATA TABLE
+   ============================================ */
+
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner td.focused {
+    background-color: rgba(99, 102, 241, 0.2) !important;
+}
+
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner td.focused .dash-cell-value {
+    color: #ffffff !important;
+}
+
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner td {
+    background-color: #0f4e5d !important;
+}
+
+/* Hover highlight on all Detailed Tables */
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner table tbody tr:hover > td.dash-cell {
+    background-color: #006178 !important;
+    color: #ffffff !important;
+}
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner table tbody tr:hover > td.dash-cell .dash-cell-value {
+    color: #ffffff !important;
+}
+
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner td {
+    font-family: 'Calibri', sans-serif !important;
+    text-align: center;
+}
+
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner th {
+    font-family: 'Calibri', sans-serif !important;
+    text-align: center;
+}
+
+.dash-table-container .dash-spreadsheet-container .dash-spreadsheet-inner .dash-cell-value {
+    font-family: 'Calibri', sans-serif !important;
+    text-align: center;
+}
+
+/* Pagination */
+.dash-table-container .previous-next-container .page-number {
+    color: #ffffff !important;
+}
+
+.dash-table-container .previous-next-container button {
+    background-color: #007effd1 !important;
+    color: #ffffff !important;
+    border: 1px solid #334155 !important;
+    border-radius: 5px !important;
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+
+.btn-custom {
+    border-radius: 12px;
+    font-weight: 600;
+    padding: 0.625rem 1.5rem;
+    transition: var(--transition);
+    border: none;
+}
+
+.btn-custom:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);
+}
+
+/* ============================================
+   FOOTER
+   ============================================ */
+
+.footer-custom {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-top: 1px solid var(--border-color);
+    margin-top: auto;
+}
+
+/* ============================================
+   SCROLLBAR
+   ============================================ */
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #475569;
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.kpi-card {
+    animation: fadeInUp 0.5s ease forwards;
+}
+
+.kpi-card:nth-child(1) { animation-delay: 0.1s; }
+.kpi-card:nth-child(2) { animation-delay: 0.2s; }
+.kpi-card:nth-child(3) { animation-delay: 0.3s; }
+.kpi-card:nth-child(4) { animation-delay: 0.4s; }
+.kpi-card:nth-child(5) { animation-delay: 0.5s; }
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 768px) {
+    .navbar-brand-custom {
+        font-size: 1.2rem !important;
+    }
+
+    .kpi-card h3 {
+        font-size: 1.5rem !important;
+    }
+
+    .hero-section h1 {
+        font-size: 2rem !important;
+    }
+
+    .page-card {
+        margin-bottom: 1rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .main-container {
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+    }
+
+    .filter-card {
+        padding: 1rem !important;
+    }
+}
+
+/* ============================================
+   LOADING SPINNER
+   ============================================ */
+
+.dash-loading {
+    color: var(--accent-purple) !important;
+}
+
+/* ============================================
+   TOOLTIP
+   ============================================ */
+
+.dash-tooltip {
+    background-color: #1e293b !important;
+    border: 1px solid #334155 !important;
+    border-radius: 8px !important;
+    color: #f8fafc !important;
+}
+
+/* ============================================
+   DATA TABLES â€” FILTER ROW (ALL PAGES)
+   White background, dark text â€” matches
+   sales_dashboard.py style_filter.
+   ============================================ */
+.dash-filter,
+.dash-table .dash-filter {
+    background-color: #ffffff !important;
+    border-top: 1px solid #cbd5e1 !important;
+}
+
+.dash-filter input,
+.dash-filter select,
+.dash-filter ::placeholder {
+    color: #000000 !important;
+    font-weight: 600 !important;
+    background: transparent !important;
+    caret-color: #fc0101 !important;
+}
+/* ============================================
+   CARD-BODY â€” ANIMATIONS & TRANSITIONS
+   ============================================ */
+
+/* Base smooth transitions for every card body */
+.card-body {
+    transition:
+        background-color 0.35s ease,
+        box-shadow 0.35s ease,
+        transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Entrance: fade + gentle rise, applied only to non-filter bodies so the
+   filter card's absolutely-positioned dropdowns are never clipped. */
+@keyframes cardBodyIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.card:not(.filter-card) > .card-body {
+    animation: cardBodyIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Stagger the animated bodies a touch for a cascading reveal */
+.card:not(.filter-card):nth-child(2) > .card-body { animation-delay: 0.06s; }
+.card:not(.filter-card):nth-child(3) > .card-body { animation-delay: 0.12s; }
+.card:not(.filter-card):nth-child(4) > .card-body { animation-delay: 0.18s; }
+
+/* Hover: soft inner highlight + gentle lift (filter card excluded) */
+.card:not(.filter-card):hover > .card-body {
+    transform: translateY(-3px);
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.035) 0%, rgba(255, 255, 255, 0) 60%);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+/* Light sweep that glides across the body on hover (a polished shimmer) */
+.card:not(.filter-card) > .card-body {
+    position: relative;
+    overflow: hidden;
+}
+
+.card:not(.filter-card) > .card-body::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -70%;
+    width: 45%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+    transform: skewX(-20deg);
+    transition: left 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+}
+
+.card:not(.filter-card):hover > .card-body::after {
+    left: 130%;
+}
+
+/* Nudge the header + loading wrapper slightly on their own body hover */
+.card:not(.filter-card):hover > .card-body .card-header ~ *,
+.card:not(.filter-card):hover > .card-body .dash-loading {
+    transition: transform 0.35s ease, opacity 0.35s ease;
+}
+
+/* Chart body: quiet fade-in of the graph itself */
+.card:not(.filter-card) > .card-body .js-plotly-plot {
+    opacity: 0;
+    animation: cardBodyIn 0.7s ease 0.1s forwards;
+}
+
+.card:not(.filter-card):hover > .card-body .js-plotly-plot {
+    opacity: 1;
+}
+
+
+/* Top stores table rows */
+.top-stores-table tbody tr { transition: background 0.2s ease; }
+.top-stores-table tbody tr:hover { background: rgba(245, 158, 11, 0.08) !important; }
+.top-stores-table th, .top-stores-table td { border-color: #334155 !important; background: transparent !important; }
+
+/* Top 10 stores card - vertical scrollbar */
+.top-stores-scroll { scrollbar-width: thin; scrollbar-color: #f59e0b #0f172a; }
+.top-stores-scroll::-webkit-scrollbar { width: 8px; }
+.top-stores-scroll::-webkit-scrollbar-track { background: #0f172a; border-radius: 8px; }
+.top-stores-scroll::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #f59e0b, #d97706); border-radius: 8px; }
+.top-stores-scroll::-webkit-scrollbar-thumb:hover { background: #f59e0b; }
+
+/* Scrollable cards: kill 3D transform so inner scrolling works */
+.anim-cards-page .scroll-card,
+.anim-cards-page .scroll-card.card {
+    animation: none !important;
+    transform: none !important;
+    transform-style: flat !important;
+    perspective: none !important;
+    -webkit-perspective: none !important;
+}
+.anim-cards-page .scroll-card .card-body {
+    animation: none !important;
+    transform: none !important;
+    overflow: hidden;
+}
+.anim-cards-page .scroll-card .card-body::after { display: none; }
+.top-stores-scroll { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.top-stores-scroll * { pointer-events: auto; }
+
+/* Card inside flex column must stretch full width (fixes right gap) */
+.spiff-col-30t > .card, .spiff-col-50p > .card, .spiff-col-50 > .card,
+.spiff-col-70t > .card, .spiff-col-45 > .card, .spiff-col-70 > .card, .spiff-col-30 > .card {
+    width: 100% !important; max-width: 100% !important; flex: 1 1 auto !important;}
+
+/* Home page card buttons: white background on hover */
+.page-card .btn:hover, .page-card .btn:focus {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+}
