@@ -1,1 +1,1 @@
-﻿# pages package
+# pages package
