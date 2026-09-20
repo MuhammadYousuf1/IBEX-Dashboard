@@ -1308,6 +1308,48 @@ else:
                         })
                     ], xs=12, md=6, className='mb-4'),
                 ]),
+                # Tables: Activations Analysis
+                dbc.Row([
+                    dbc.Col([
+                        dbc.Card([
+                            dbc.CardHeader([
+                                html.H5([
+                                    html.I(className='fas fa-user me-2',
+                                           style={'color': '#ef4444'}),
+                                    'Highest Activations by Store'
+                                ], className='mb-0', style={'color': '#f8fafc'})
+                            ], style={'background': 'transparent', 'borderBottom': '1px solid #334155'}),
+                            dbc.CardBody([
+                                html.Div(id='activation-by-store-table',
+                                         style={'minHeight': '150px'})
+                            ], className='p-3')
+                        ], style={
+                            'background': '#1e293b',
+                            'border': '1px solid #334155',
+                            'borderRadius': '20px'
+                        })
+                    ], xs=12, md=6, className='mb-4'),
+                    dbc.Col([
+                        dbc.Card([
+                            dbc.CardHeader([
+                                html.H5([
+                                    html.I(className='fas fa-box me-2',
+                                           style={'color': '#8b5cf6'}),
+                                    'Highest Activations by Product'
+                                ], className='mb-0', style={'color': '#f8fafc'})
+                            ], style={'background': 'transparent', 'borderBottom': '1px solid #334155'}),
+                            dbc.CardBody([
+                                html.Div(id='activation-by-product-table',
+                                         style={'minHeight': '150px'})
+                            ], className='p-3')
+                        ], style={
+                            'background': '#1e293b',
+                            'border': '1px solid #334155',
+                            'borderRadius': '20px'
+                        })
+                    ], xs=12, md=6, className='mb-4'),
+                ]),
+
             ]),
 
             dbc.Row([
@@ -1443,6 +1485,8 @@ else:
         Output('bts-pie-chart', 'figure'),
         Output('accessory-by-store-table', 'children'),
         Output('accessory-by-product-table', 'children'),
+        Output('activation-by-store-table', 'children'),
+        Output('activation-by-product-table', 'children'),
         Input('apply-filters-btn', 'n_clicks'),
         State('store-filter', 'value'),
         State('marketid-filter', 'value'),
@@ -1929,12 +1973,20 @@ else:
 
         # --- Generate accessory tables ---
         def _create_accessory_table(df, group_col, value_col, n=10):
-            """Create a table of top N stores/products by accessory sales."""
+            """Create a table of top N stores/products by accessory sales or activations."""
             if df is None or df.empty or group_col not in df.columns:
                 return html.Div('No data available', style={'color': '#64748b'})
             
-            # Group by store/product and sum accessories
-            grouped = df.groupby(group_col)[value_col].sum().sort_values(ascending=False)
+            # Group by store/product - count for activations, sum for accessories
+            if value_col:
+                grouped = df.groupby(group_col)[value_col].sum().sort_values(ascending=False)
+                value_fmt = '${value:,.2f}'
+                header = 'Total Sales'
+            else:
+                grouped = df.groupby(group_col).size().sort_values(ascending=False)
+                value_fmt = '{value:,}'
+                header = 'Count'
+            
             top_n = grouped.head(n)
             
             if top_n.empty:
@@ -1946,14 +1998,14 @@ else:
                 table_rows.append(html.Tr([
                     html.Td(idx, style={'color': '#94a3b8', 'padding': '8px 12px'}),
                     html.Td(str(name), style={'color': '#f8fafc', 'padding': '8px 12px', 'fontWeight': '500'}),
-                    html.Td(f'${value:,.2f}', style={'color': '#00ff51', 'padding': '8px 12px', 'fontWeight': 'bold', 'textAlign': 'right'}),
+                    html.Td(value_fmt.format(value=value), style={'color': '#00ff51', 'padding': '8px 12px', 'fontWeight': 'bold', 'textAlign': 'right'}),
                 ]))
             
             return dbc.Table([
                 html.Thead(html.Tr([
                     html.Th('#', style={'color': '#94a3b8', 'padding': '8px 12px', 'fontSize': '0.85rem'}),
                     html.Th(group_col, style={'color': '#94a3b8', 'padding': '8px 12px', 'fontSize': '0.85rem'}),
-                    html.Th('Total Sales', style={'color': '#94a3b8', 'padding': '8px 12px', 'fontSize': '0.85rem', 'textAlign': 'right'}),
+                    html.Th(header, style={'color': '#94a3b8', 'padding': '8px 12px', 'fontSize': '0.85rem', 'textAlign': 'right'}),
                 ])),
                 html.Tbody(table_rows)
             ], striped=True, hover=True, style={
@@ -1963,8 +2015,13 @@ else:
                 'overflow': 'hidden',
             }, className='mb-0')
         
+        # Accessory tables
         store_table = _create_accessory_table(acc_f, 'STORE', SDT_COL_TOTAL_SALES)
         product_table = _create_accessory_table(acc_f, SDT_COL_PRODUCT_DESC, SDT_COL_TOTAL_SALES)
+        
+        # Activation tables
+        act_store_table = _create_accessory_table(act_f, 'STORE', None, n=10)
+        act_product_table = _create_accessory_table(act_f, SDT_COL_PRODUCT_DESC, None, n=10)
         return (
             _dp_val,
             _act_val,
@@ -1986,6 +2043,8 @@ else:
             bts_pie_fig,
             store_table,
             product_table,
+            act_store_table,
+            act_product_table,
         )
 
     @callback(
