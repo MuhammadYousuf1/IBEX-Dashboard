@@ -48,7 +48,13 @@ def get_supabase():
     global _client
     if _client is not None:
         return _client
-    api_key = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY") or ""
+    # The service-role key is preferred: the anon/publishable key is blocked by
+    # row level security, which makes every read come back empty and every
+    # insert/upload fail.
+    api_key = (os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+               or os.getenv("SUPABASE_KEY")
+               or os.getenv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY")
+               or "")
     if not SUPABASE_URL or not api_key:
         raise RuntimeError(
             "Missing or invalid Supabase configuration. "

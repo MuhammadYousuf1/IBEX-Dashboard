@@ -8,12 +8,14 @@ Run with: python app.py
 
 import hashlib
 import os
+import shutil
 import sqlite3
 import sys
+import tempfile
 from flask import Flask, render_template_string, send_from_directory
 from dotenv import load_dotenv
 import dash
-from dash import dcc, html, Input, Output, State, callback, dash_table, ctx
+from dash import dcc, html, Input, Output, State, callback, dash_table, ctx, no_update
 import dash_bootstrap_components as dbc
 import plotly.express as px
 import plotly.graph_objects as go
@@ -26,6 +28,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Set to True to show the registration form below the login form.
 SHOW_CREATE_ACCOUNT = True
+
+# Set to True to print the technical reason behind a failed sign-in under the
+# error message. Very useful when the cloud deployment is not configured yet;
+# set it to False once everything works.
+SHOW_AUTH_DIAGNOSTICS = True
 
 # Import shared data module (after Dash creation so the merged page's
 # register_page/callbacks are collected by the pages plugin correctly)
@@ -132,7 +139,61 @@ def create_footer():
 
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(APP_ROOT, '.env'))
-AUTH_DB_PATH = os.path.join(APP_ROOT, 'data', 'auth_users.db')
+
+# --- Supabase configuration -------------------------------------------------
+# NOTE: .env is git-ignored, so it never reaches Vercel. The exact same three
+# variables must be added in the Vercel dashboard (Project -> Settings ->
+# Environment Variables) and the project redeployed:
+#     SUPABASE_URL
+#     SUPABASE_SERVICE_ROLE_KEY   <-- required, it is the one that bypasses RLS
+#     SUPABASE_KEY                <-- optional publishable/anon key
+SUPABASE_URL = (os.getenv('SUPABASE_URL')
+                or os.getenv('NEXT_PUBLIC_SUPABASE_URL') or '').strip()
+SUPABASE_PUBLIC_KEY = (os.getenv('SUPABASE_KEY')
+                       or os.getenv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY') or '').strip()
+# Row level security is enabled on `app_users`, so the publishable/anon key reads
+# back ZERO rows and cannot insert. Only the service-role key can read/write it.
+SUPABASE_ADMIN_KEY = (os.getenv('SUPABASE_SERVICE_ROLE_KEY') or '').strip()
+AUTH_TABLE = 'app_users'
+
+# --- Local fallback database ------------------------------------------------
+# Vercel's deployment filesystem is read-only, only the temp directory can be
+# written to. Locally the database stays inside data/.
+ON_SERVERLESS = bool(os.getenv('VERCEL'))
+BUNDLED_AUTH_DB = os.path.join(APP_ROOT, 'data', 'auth_users.db')
+if ON_SERVERLESS:
+    AUTH_DB_PATH = os.path.join(tempfile.gettempdir(), 'auth_users.db')
+    if not os.path.exists(AUTH_DB_PATH) and os.path.exists(BUNDLED_AUTH_DB):
+        try:
+            shutil.copyfile(BUNDLED_AUTH_DB, AUTH_DB_PATH)
+        except Exception:
+            pass
+else:
+    AUTH_DB_PATH = BUNDLED_AUTH_DB
+
+# Last technical reason a Supabase call failed. Only used for the on-screen
+# diagnostics while SHOW_AUTH_DIAGNOSTICS is True.
+_auth_error = None
+_client_cache = {}
+
+
+def _set_auth_error(message):
+    """Remember the technical reason behind the last failed auth operation."""
+    global _auth_error
+    _auth_error = message
+
+
+def _consume_auth_error():
+    """Return and clear the remembered auth error."""
+    global _auth_error
+    message, _auth_error = _auth_error, None
+    return message
+
+
+def _short_error(exc, limit=160):
+    """One-line version of an exception, short enough for the login screen."""
+    text = ' '.join(str(exc).split())
+    return text if len(text) <= limit else text[:limit] + '...'
 
 
 def hash_password(password):
@@ -140,132 +201,205 @@ def hash_password(password):
     return hashlib.sha256(str(password).strip().encode('utf-8')).hexdigest()
 
 
-def get_supabase_client():
-    """Return a Supabase client using the configured server-side or public env values."""
-    supabase_url = (
-        os.getenv('SUPABASE_URL')
-        or os.getenv('NEXT_PUBLIC_SUPABASE_URL')
-    )
-    supabase_key = (
-        os.getenv('SUPABASE_SERVICE_ROLE_KEY')
-        or os.getenv('SUPABASE_KEY')
-        or os.getenv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY')
-    )
-    if not supabase_url or not supabase_key:
+def _build_supabase_client(key):
+    """Create (and cache) a Supabase client for the given API key."""
+    if not SUPABASE_URL or not key:
         return None
-
+    if key in _client_cache:
+        return _client_cache[key]
+    client = None
     try:
         from supabase import create_client
-        return create_client(supabase_url, supabase_key)
-    except Exception:
-        return None
+        client = create_client(SUPABASE_URL, key)
+    except Exception as exc:
+        _set_auth_error(f'Could not create the Supabase client: {_short_error(exc)}')
+    _client_cache[key] = client
+    return client
+
+
+def get_supabase_client():
+    """Client used for `app_users` reads/writes (service-role key when present)."""
+    if SUPABASE_ADMIN_KEY:
+        admin = _build_supabase_client(SUPABASE_ADMIN_KEY)
+        if admin is not None:
+            return admin
+    return _build_supabase_client(SUPABASE_PUBLIC_KEY)
+
+
+def get_supabase_auth_client():
+    """Client used for Supabase Auth e-mail/password sign-in."""
+    if SUPABASE_PUBLIC_KEY:
+        public = _build_supabase_client(SUPABASE_PUBLIC_KEY)
+        if public is not None:
+            return public
+    return get_supabase_client()
+
+
+def supabase_status():
+    """Secret-free summary of the Supabase wiring, exposed through /health."""
+    client = get_supabase_client()
+    return {
+        'url_configured': bool(SUPABASE_URL),
+        'publishable_key_configured': bool(SUPABASE_PUBLIC_KEY),
+        'service_role_key_configured': bool(SUPABASE_ADMIN_KEY),
+        'client_configured': client is not None,
+        'publishable_key_is_denied_by_rls': bool(SUPABASE_URL)
+        and not bool(SUPABASE_ADMIN_KEY),
+    }
 
 
 def initialize_auth_db():
-    """Create the local fallback auth table without creating any default account."""
-    os.makedirs(os.path.dirname(AUTH_DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(AUTH_DB_PATH)
-    conn.execute(
-        '''
-        CREATE TABLE IF NOT EXISTS app_users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            password_hash TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    """Create the local fallback table. Never raises on a read-only filesystem."""
+    try:
+        os.makedirs(os.path.dirname(AUTH_DB_PATH), exist_ok=True)
+        conn = sqlite3.connect(AUTH_DB_PATH)
+        conn.execute(
+            '''
+            CREATE TABLE IF NOT EXISTS app_users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            '''
         )
-        '''
-    )
-    conn.commit()
-    conn.close()
-
-
-def ensure_supabase_users_table():
-    """Try to ensure the login table exists in Supabase when configured."""
-    supabase = get_supabase_client()
-    if not supabase:
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as exc:
+        _set_auth_error(f'Local auth database unavailable: {_short_error(exc)}')
         return False
 
+
+def _sqlite_user_exists(username):
+    """Look a username up in the local fallback database (never raises)."""
     try:
-        supabase.table('app_users').select('username').limit(1).execute()
+        conn = sqlite3.connect(AUTH_DB_PATH)
+        row = conn.execute(
+            'SELECT 1 FROM app_users WHERE username = ?', (username,)
+        ).fetchone()
+        conn.close()
+        return row is not None
+    except Exception:
+        return False
+
+
+def _sqlite_validate(username, password_hash):
+    """Validate a username/password hash against the local fallback database."""
+    try:
+        conn = sqlite3.connect(AUTH_DB_PATH)
+        row = conn.execute(
+            'SELECT 1 FROM app_users WHERE username = ? AND password_hash = ?',
+            (username, password_hash),
+        ).fetchone()
+        conn.close()
+        return row is not None
+    except Exception:
+        return False
+
+
+def _sqlite_save(username, password_hash):
+    """Store a username/password hash locally (best effort, never raises)."""
+    try:
+        conn = sqlite3.connect(AUTH_DB_PATH)
+        conn.execute(
+            'INSERT OR IGNORE INTO app_users (username, password_hash) VALUES (?, ?)',
+            (username, password_hash),
+        )
+        conn.commit()
+        conn.close()
         return True
     except Exception:
         return False
 
 
+def _probe_supabase_users_table():
+    """Return ``(reachable, error_message)`` without touching the global state."""
+    supabase = get_supabase_client()
+    if supabase is None:
+        return False, 'No Supabase client could be created from the environment.'
+    try:
+        supabase.table(AUTH_TABLE).select('username').limit(1).execute()
+        return True, None
+    except Exception as exc:
+        return False, f'Supabase `{AUTH_TABLE}` is not reachable: {_short_error(exc)}'
+
+
+def ensure_supabase_users_table():
+    """Check that the Supabase login table is reachable with the configured key."""
+    reachable, error = _probe_supabase_users_table()
+    if not reachable and error:
+        _set_auth_error(error)
+    if not SUPABASE_ADMIN_KEY:
+        _set_auth_error(
+            'SUPABASE_SERVICE_ROLE_KEY is not configured on this server, so row '
+            'level security will hide every row of app_users.'
+        )
+    return reachable
+
+
 def user_exists(username):
-    """Check whether a username already exists in the configured database."""
+    """Check whether a username already exists in Supabase or the local database."""
     username = (username or '').strip()
     if not username:
         return False
 
     supabase = get_supabase_client()
-    if supabase:
+    if supabase is not None:
         try:
-            result = supabase.table('app_users').select(
+            result = supabase.table(AUTH_TABLE).select(
                 'username').eq('username', username).limit(1).execute()
-            rows = result.data or []
-            if rows:
+            if result.data:
                 return True
-        except Exception:
-            pass
+        except Exception as exc:
+            _set_auth_error(f'Could not read `{AUTH_TABLE}`: {_short_error(exc)}')
 
-    conn = sqlite3.connect(AUTH_DB_PATH)
-    row = conn.execute(
-        'SELECT 1 FROM app_users WHERE username = ?', (username,)
-    ).fetchone()
-    conn.close()
-    return row is not None
+    return _sqlite_user_exists(username)
 
 
 def save_user(username, password):
-    """Save a username/password pair to the configured auth store."""
+    """Save a username/password pair to Supabase (SQLite is only a fallback)."""
     username = (username or '').strip()
     password = (password or '').strip()
     if not username or not password:
         return False
 
     hashed_password = hash_password(password)
-
     supabase = get_supabase_client()
-    if supabase:
+
+    if supabase is None:
+        _set_auth_error(
+            'Supabase is not configured on this server: SUPABASE_URL and/or '
+            'SUPABASE_SERVICE_ROLE_KEY are missing from the environment.'
+        )
+    else:
+        if not SUPABASE_ADMIN_KEY:
+            _set_auth_error(
+                'SUPABASE_SERVICE_ROLE_KEY is missing on this server. The '
+                'publishable key cannot write to app_users because row level '
+                'security is enabled.'
+            )
         try:
-            supabase.table('app_users').upsert({
+            # `created_at` is deliberately not sent so the database default is
+            # preserved instead of being rewritten on every upsert.
+            supabase.table(AUTH_TABLE).upsert({
                 'username': username,
                 'password_hash': hashed_password,
-                'created_at': datetime.utcnow().isoformat()
             }, on_conflict='username').execute()
-            # Vercel's deployed filesystem is read-only; local sync is optional.
-            if not os.getenv('VERCEL'):
-                try:
-                    conn = sqlite3.connect(AUTH_DB_PATH)
-                    conn.execute(
-                        'INSERT OR IGNORE INTO app_users (username, password_hash) VALUES (?, ?)',
-                        (username, hashed_password),
-                    )
-                    conn.commit()
-                    conn.close()
-                except Exception:
-                    pass
+            _sqlite_save(username, hashed_password)  # warm-instance cache
             return True
-        except Exception:
-            if os.getenv('VERCEL'):
-                return False
+        except Exception as exc:
+            _set_auth_error(f'Supabase rejected the new account: {_short_error(exc)}')
 
-    if os.getenv('VERCEL'):
+    if ON_SERVERLESS:
+        # Never report success from the ephemeral /tmp database: the account
+        # would silently disappear after the next cold start.
         return False
-
-    conn = sqlite3.connect(AUTH_DB_PATH)
-    conn.execute(
-        'INSERT OR IGNORE INTO app_users (username, password_hash) VALUES (?, ?)',
-        (username, hashed_password),
-    )
-    conn.commit()
-    conn.close()
-    return True
+    return _sqlite_save(username, hashed_password)
 
 
 def validate_user(username, password):
-    """Check custom app users and Supabase Auth credentials."""
+    """Validate a sign-in against Supabase Auth, Supabase `app_users` or SQLite."""
     username = (username or '').strip()
     password = (password or '').strip()
     if not username or not password:
@@ -273,38 +407,44 @@ def validate_user(username, password):
 
     expected_hash = hash_password(password)
 
-    supabase = get_supabase_client()
-    if supabase:
-        # Support users created in Supabase Authentication as well as the
-        # application's legacy app_users table.
-        try:
-            supabase.auth.sign_in_with_password({
-                'email': username,
-                'password': password,
-            })
-            return True
-        except Exception:
-            pass
+    # 1) Supabase Auth (only meaningful when the user typed an e-mail address).
+    if '@' in username:
+        auth_client = get_supabase_auth_client()
+        if auth_client is not None:
+            try:
+                auth_client.auth.sign_in_with_password({
+                    'email': username,
+                    'password': password,
+                })
+                return True
+            except Exception as exc:
+                _set_auth_error(f'Supabase Auth: {_short_error(exc)}')
 
+    # 2) The application's own `app_users` table (sha256 hashed passwords).
+    supabase = get_supabase_client()
+    if supabase is None:
+        _set_auth_error(
+            'Supabase is not configured on this server, so only the bundled '
+            'local account database could be checked.'
+        )
+    else:
         try:
-            result = supabase.table('app_users').select(
-                '*').eq('username', username).execute()
+            result = supabase.table(AUTH_TABLE).select(
+                'username, password_hash').eq('username', username).execute()
             rows = result.data or []
             for row in rows:
                 if row.get('password_hash') == expected_hash:
                     return True
-            # If Supabase is reachable but username wasn't found, do not immediately fail if
-            # there is a local fallback row; this helps keep a backup working when syncing is delayed.
-        except Exception:
-            pass
+            if not rows and not SUPABASE_ADMIN_KEY:
+                _set_auth_error(
+                    'Supabase returned no row for this user. Row level security '
+                    'requires SUPABASE_SERVICE_ROLE_KEY on the server.'
+                )
+        except Exception as exc:
+            _set_auth_error(f'Could not read `{AUTH_TABLE}`: {_short_error(exc)}')
 
-    conn = sqlite3.connect(AUTH_DB_PATH)
-    row = conn.execute(
-        'SELECT 1 FROM app_users WHERE username = ? AND password_hash = ?',
-        (username, expected_hash),
-    ).fetchone()
-    conn.close()
-    return row is not None
+    # 3) Local fallback database.
+    return _sqlite_validate(username, expected_hash)
 
 
 initialize_auth_db()
@@ -312,8 +452,12 @@ initialize_auth_db()
 
 def sync_local_auth_to_supabase():
     """Mirror the local auth database into Supabase if credentials are configured."""
+    if ON_SERVERLESS:
+        # Only a best-effort cache lives in /tmp there, nothing worth pushing.
+        return False
+
     supabase = get_supabase_client()
-    if not supabase:
+    if supabase is None or not SUPABASE_ADMIN_KEY:
         return False
 
     try:
@@ -324,25 +468,28 @@ def sync_local_auth_to_supabase():
         conn.close()
 
         for username, password_hash in rows:
-            supabase.table('app_users').upsert({
+            # `created_at` is omitted so the original creation time is kept.
+            supabase.table(AUTH_TABLE).upsert({
                 'username': username,
                 'password_hash': password_hash,
-                'created_at': datetime.utcnow().isoformat()
             }, on_conflict='username').execute()
         return True
-    except Exception:
+    except Exception as exc:
+        _set_auth_error(f'Could not sync local users to Supabase: {_short_error(exc)}')
         return False
 
 
 ensure_supabase_users_table()
 sync_local_auth_to_supabase()
+_auth_error = None  # startup probes must not show up on the login screen
 
 # ============================================================================
 # LOGIN SCREEN + MAIN APP LAYOUT
 # ============================================================================
 
 
-def create_login_layout(error_message=None, success_message=None, username_value='', password_value=''):
+def create_login_layout(error_message=None, success_message=None, username_value='',
+                        password_value='', detail_message=None):
     """Render the initial sign-in form before the dashboard loads."""
     status = []
     if error_message:
@@ -351,6 +498,15 @@ def create_login_layout(error_message=None, success_message=None, username_value
     if success_message:
         status.append(html.Div(success_message, className='text-success mt-2 text-center',
                                style={'fontWeight': '600'}))
+    if detail_message and SHOW_AUTH_DIAGNOSTICS:
+        # Small technical hint (missing env var, RLS denial, ...) that makes a
+        # cloud configuration problem obvious instead of "invalid password".
+        status.append(html.Div([
+            html.I(className='fas fa-circle-info me-1'),
+            detail_message,
+        ], className='mt-2 text-center', style={
+            'color': '#fbbf24', 'fontSize': '0.78rem', 'lineHeight': '1.35'
+        }))
 
     return dbc.Container([
         dbc.Row([
@@ -506,52 +662,89 @@ app.layout = html.Div([
     prevent_initial_call=False
 )
 def authenticate_user(login_clicks, logout_clicks, logout_visible_clicks, register_clicks,
-                     stored_session, username, password, register_username,
-                     register_password, register_confirm_password):
-    """Handle login, logout, and session persistence for the current login-only layout."""
-    trigger = ctx.triggered_id if ctx.triggered_id else None
+                      stored_session, username, password, register_username,
+                      register_password, register_confirm_password):
+    """Handle login, logout, registration and session persistence.
 
-    if trigger == 'session-user':
-        stored_username = (stored_session or {}).get('username')
+    Two Dash behaviours are guarded here, because together they made signing in
+    impossible on the deployed app:
+
+    * Dash fires this callback again every time the layout below is replaced,
+      passing the brand new buttons with ``n_clicks == 0``. The freshly rendered
+      Logout button therefore used to sign the user straight back out, so the
+      login page reappeared no matter which credentials were used.
+    * The very first call of the page arrives before the browser has reported
+      the value saved in ``localStorage``. Returning ``{'username': None}``
+      there overwrote the saved session, so a refresh never stayed signed in.
+
+    ``session-user`` is now only written when it really changes, and ``app-root``
+    always receives a value.
+    """
+    trigger = ctx.triggered_id
+    login_clicks = login_clicks or 0
+    logout_clicks = logout_clicks or 0
+    logout_visible_clicks = logout_visible_clicks or 0
+    register_clicks = register_clicks or 0
+    stored_username = (stored_session or {}).get('username')
+
+    # --- first paint & session restore --------------------------------------
+    if trigger in (None, 'session-user'):
         if stored_username:
-            return create_main_layout(username=stored_username), {'username': stored_username}
-        return create_login_layout(), {'username': None}
+            return create_main_layout(username=stored_username), no_update
+        return create_login_layout(), no_update  # never clear the saved session
 
+    # --- logout -------------------------------------------------------------
     if trigger in ('logout-button', 'logout-button-visible'):
+        if not logout_clicks and not logout_visible_clicks:
+            return no_update, no_update  # button was rendered, not clicked
         return create_login_layout(), {'username': None}
 
+    # --- create account -----------------------------------------------------
     if trigger == 'register-button':
+        if not register_clicks:
+            return no_update, no_update
+
         register_username = (register_username or '').strip()
         register_password = (register_password or '').strip()
         register_confirm_password = (register_confirm_password or '').strip()
 
         if not register_username or not register_password or not register_confirm_password:
             return create_login_layout(
-                'Please complete all account fields.'), {'username': None}
+                'Please complete all account fields.'), no_update
         if register_password != register_confirm_password:
             return create_login_layout(
-                'Passwords do not match.', username_value=register_username), {'username': None}
+                'Passwords do not match.', username_value=register_username), no_update
         if user_exists(register_username):
             return create_login_layout(
-                'That username already exists.', username_value=register_username), {'username': None}
+                'That username already exists.', username_value=register_username), no_update
         if save_user(register_username, register_password):
             return create_login_layout(
                 success_message='Account created. You can now log in.',
-                username_value=register_username), {'username': None}
+                username_value=register_username), no_update
         return create_login_layout(
-            'Unable to create the account. Please try again.',
-            username_value=register_username), {'username': None}
+            'Unable to create the account.',
+            username_value=register_username,
+            detail_message=_consume_auth_error()), no_update
+
+    # --- sign in ------------------------------------------------------------
+    if not login_clicks:
+        return no_update, no_update  # login button was rendered, not clicked
 
     username = (username or '').strip()
     password = (password or '').strip()
 
     if not username or not password:
-        return create_login_layout('Please enter both User Name and Password.', username_value=username, password_value=password), {'username': None}
+        return create_login_layout(
+            'Please enter both User Name and Password.',
+            username_value=username, password_value=password), no_update
 
     if validate_user(username, password):
         return create_main_layout(username=username), {'username': username}
 
-    return create_login_layout('Invalid username or password. Please try again.', username_value=username, password_value=password), {'username': None}
+    return create_login_layout(
+        'Invalid username or password. Please try again.',
+        username_value=username, password_value=password,
+        detail_message=_consume_auth_error()), no_update
 
 
 # ============================================================================
@@ -561,7 +754,35 @@ def authenticate_user(login_clicks, logout_clicks, logout_visible_clicks, regist
 
 @server.route('/health')
 def health_check():
-    return {'status': 'healthy', 'timestamp': datetime.now().isoformat()}
+    """Liveness probe plus a secret-free summary of the auth/data wiring.
+
+    Useful right after a deploy: open /health on the live site to see whether
+    Supabase is configured and whether the data files were bundled.
+    """
+    reachable, table_error = _probe_supabase_users_table()
+    try:
+        db_writable = os.access(os.path.dirname(AUTH_DB_PATH) or '.', os.W_OK)
+    except Exception:
+        db_writable = False
+
+    return {
+        'status': 'healthy',
+        'timestamp': datetime.now().isoformat(),
+        'serverless': ON_SERVERLESS,
+        'python': sys.version.split()[0],
+        'auth_db_path': AUTH_DB_PATH,
+        'auth_db_writable': db_writable,
+        'supabase': supabase_status(),
+        'supabase_app_users_reachable': reachable,
+        'supabase_error': table_error,
+        'data_files': {
+            'sales_update_xlsx': os.path.exists(
+                os.path.join(APP_ROOT, 'data', 'SALES UPDATE.xlsx')),
+            'bundled_auth_db': os.path.exists(BUNDLED_AUTH_DB),
+            'custom_css': os.path.exists(
+                os.path.join(APP_ROOT, 'assets', 'custom.css')),
+        },
+    }
 
 # ============================================================================
 # RUN APPLICATION
