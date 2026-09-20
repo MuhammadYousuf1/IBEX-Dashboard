@@ -1280,7 +1280,7 @@ else:
                             ], style={'background': 'transparent', 'borderBottom': '1px solid #334155'}),
                             dbc.CardBody([
                                 html.Div(id='accessory-by-store-table',
-                                         style={'minHeight': '150px'})
+                                         style={'minHeight': '320px', 'maxHeight': '350px', 'overflow': 'auto'})
                             ], className='p-3')
                         ], style={
                             'background': '#1e293b',
@@ -1299,7 +1299,7 @@ else:
                             ], style={'background': 'transparent', 'borderBottom': '1px solid #334155'}),
                             dbc.CardBody([
                                 html.Div(id='activation-by-store-table',
-                                         style={'minHeight': '150px'})
+                                         style={'minHeight': '320px', 'maxHeight': '350px', 'overflow': 'auto'})
                             ], className='p-3')
                         ], style={
                             'background': '#1e293b',
@@ -1321,7 +1321,7 @@ else:
                             ], style={'background': 'transparent', 'borderBottom': '1px solid #334155'}),
                             dbc.CardBody([
                                 html.Div(id='accessory-by-product-table',
-                                         style={'minHeight': '150px'})
+                                         style={'minHeight': '320px', 'maxHeight': '350px', 'overflow': 'auto'})
                             ], className='p-3')
                         ], style={
                             'background': '#1e293b',
@@ -1340,7 +1340,7 @@ else:
                             ], style={'background': 'transparent', 'borderBottom': '1px solid #334155'}),
                             dbc.CardBody([
                                 html.Div(id='activation-by-product-table',
-                                         style={'minHeight': '150px'})
+                                         style={'minHeight': '320px', 'maxHeight': '350px', 'overflow': 'auto'})
                             ], className='p-3')
                         ], style={
                             'background': '#1e293b',
@@ -2012,7 +2012,8 @@ else:
                 'background': 'transparent',
                 'border': 'none',
                 'borderRadius': '10px',
-                'overflow': 'hidden',
+                'overflow': 'auto',
+                'maxHeight': '320px',
             }, className='mb-0')
         
         # Accessory tables
