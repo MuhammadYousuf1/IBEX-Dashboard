@@ -1241,32 +1241,6 @@ else:
                     })
                 ], xs=12, lg=12, className='mb-4'),
 
-                # Donut grid - the KPI cards paired by District. The former
-                # "Total Act by District" card and "KPI Cards by District" card
-                # are merged into this one card holding a single chart, so the
-                # district breakdown for every KPI lives in exactly one place:
-                # three nested donuts, each pairing two KPI cards.
-                dbc.Col([
-                    dbc.Card([
-                        dbc.CardHeader([
-                            html.H5([
-                                html.I(className='fas fa-chart-pie me-2',
-                                       style={'color': "#00ff51"}),
-                                'KPI Breakdown'
-                            ], className='mb-0', style={'color': '#f8fafc'})
-                        ], style={'background': 'transparent', 'borderBottom': '1px solid #334155'}),
-                        dbc.CardBody([
-                            dcc.Graph(id='bts-pie-chart', config={'displayModeBar': False},
-                                     style={'height': '380px'})
-                        ], className='p-3')
-                    ], style={
-                        'background': '#1e293b',
-                        'border': '1px solid #334155',
-                        'borderRadius': '20px'
-                    })
-                ], xs=12, lg=12, className='mb-4'),
-
-                
                                 # Tables: By Store Analysis
                 dbc.Row([
                     dbc.Col([
@@ -1400,6 +1374,31 @@ else:
                                 ], xs=12, md=6, className='mb-3'),
                             ], className='g-2'),
                             dcc.Graph(id='bar-chart', config={'displayModeBar': False},
+                                     style={'height': '380px'})
+                        ], className='p-3')
+                    ], style={
+                        'background': '#1e293b',
+                        'border': '1px solid #334155',
+                        'borderRadius': '20px'
+                    })
+                                ], xs=12, lg=12, className='mb-4'),
+
+                # Donut grid - the KPI cards paired by District. The former
+                # "Total Act by District" card and "KPI Cards by District" card
+                # are merged into this one card holding a single chart, so the
+                # district breakdown for every KPI lives in exactly one place:
+                # three nested donuts, each pairing two KPI cards.
+                dbc.Col([
+                    dbc.Card([
+                        dbc.CardHeader([
+                            html.H5([
+                                html.I(className='fas fa-chart-pie me-2',
+                                       style={'color': "#00ff51"}),
+                                'KPI Breakdown'
+                            ], className='mb-0', style={'color': '#f8fafc'})
+                        ], style={'background': 'transparent', 'borderBottom': '1px solid #334155'}),
+                        dbc.CardBody([
+                            dcc.Graph(id='bts-pie-chart', config={'displayModeBar': False},
                                      style={'height': '380px'})
                         ], className='p-3')
                     ], style={
