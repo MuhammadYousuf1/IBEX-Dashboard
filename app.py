@@ -488,12 +488,18 @@ app.layout = html.Div([
     Input('login-button', 'n_clicks'),
     Input('logout-button', 'n_clicks'),
     Input('logout-button-visible', 'n_clicks'),
+    Input('register-button', 'n_clicks'),
     Input('session-user', 'data'),
     State('username', 'value'),
     State('password', 'value'),
+    State('register-username', 'value'),
+    State('register-password', 'value'),
+    State('register-confirm-password', 'value'),
     prevent_initial_call=False
 )
-def authenticate_user(login_clicks, logout_clicks, logout_visible_clicks, stored_session, username, password):
+def authenticate_user(login_clicks, logout_clicks, logout_visible_clicks, register_clicks,
+                     stored_session, username, password, register_username,
+                     register_password, register_confirm_password):
     """Handle login, logout, and session persistence for the current login-only layout."""
     trigger = ctx.triggered_id if ctx.triggered_id else None
 
@@ -505,6 +511,28 @@ def authenticate_user(login_clicks, logout_clicks, logout_visible_clicks, stored
 
     if trigger in ('logout-button', 'logout-button-visible'):
         return create_login_layout(), {'username': None}
+
+    if trigger == 'register-button':
+        register_username = (register_username or '').strip()
+        register_password = (register_password or '').strip()
+        register_confirm_password = (register_confirm_password or '').strip()
+
+        if not register_username or not register_password or not register_confirm_password:
+            return create_login_layout(
+                'Please complete all account fields.'), {'username': None}
+        if register_password != register_confirm_password:
+            return create_login_layout(
+                'Passwords do not match.', username_value=register_username), {'username': None}
+        if user_exists(register_username):
+            return create_login_layout(
+                'That username already exists.', username_value=register_username), {'username': None}
+        if save_user(register_username, register_password):
+            return create_login_layout(
+                success_message='Account created. You can now log in.',
+                username_value=register_username), {'username': None}
+        return create_login_layout(
+            'Unable to create the account. Please try again.',
+            username_value=register_username), {'username': None}
 
     username = (username or '').strip()
     password = (password or '').strip()
