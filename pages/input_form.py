@@ -29,6 +29,11 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _APP_DIR = os.path.dirname(_HERE)
 load_dotenv(os.path.join(_APP_DIR, ".env"))
 load_dotenv()  # fallback to CWD
+# Committed credentials fallback (see supabase_config.py); real env vars win.
+try:
+    import supabase_config  # noqa: F401
+except Exception:
+    pass
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 TABLE = "expenses"

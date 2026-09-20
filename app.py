@@ -136,6 +136,15 @@ def create_footer():
 
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(APP_ROOT, '.env'))
+# Committed credentials so the deployment works without dashboard setup.
+# supabase_config.py uses os.environ.setdefault, so a local .env or any value
+# configured in the Vercel dashboard always wins over the committed values.
+# Delete supabase_config.py once real environment variables are configured -
+# see the security warning at the top of that file.
+try:
+    import supabase_config  # noqa: F401
+except Exception:
+    pass
 
 # --- Supabase configuration -------------------------------------------------
 # NOTE: .env is git-ignored, so it never reaches Vercel. The exact same three

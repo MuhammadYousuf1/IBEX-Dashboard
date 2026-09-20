@@ -33,17 +33,28 @@ the deployment, and no password hashes are published.
 
 ## 2. Environment variables
 
-`.env` is **git-ignored**, so it never reaches Vercel. The same three variables
-must be added in the Vercel dashboard
-(**Project → Settings → Environment Variables**) for *Production*, *Preview* and
-*Development*, and the project must then be redeployed.
+**Current setup:** the credentials are committed in `supabase_config.py` so the
+Vercel deployment works with no dashboard configuration. That file is PUBLIC —
+anyone reading the repository has the service-role key.
 
-| Variable | Required | Notes |
-|----------|----------|-------|
-| `SUPABASE_URL` | yes | `https://<project-ref>.supabase.co` |
-| `SUPABASE_SERVICE_ROLE_KEY` | **yes** | Supabase → Settings → API → `service_role` JWT. Required to bypass RLS. |
-| `SUPABASE_KEY` | optional | publishable/anon key, only needed for Supabase Auth sign-in |
-| `FLASK_SECRET_KEY` | optional | falls back to a development value |
+The recommended end state is:
+
+1. Add the three variables in the Vercel dashboard
+   (**Settings → Environment Variables**, tick Production/Preview/Development):
+
+   | Variable | Required | Notes |
+   |----------|----------|-------|
+   | `SUPABASE_URL` | yes | `https://<project-ref>.supabase.co` |
+   | `SUPABASE_SERVICE_ROLE_KEY` | **yes** | Supabase → Settings → API → `service_role` JWT. Required to bypass RLS. |
+   | `SUPABASE_KEY` | optional | publishable/anon key, only needed for Supabase Auth sign-in |
+
+2. Redeploy.
+3. **Delete `supabase_config.py`** and rotate the service key in
+   Supabase → Settings → API (a key that was public must not be reused).
+
+`supabase_config.py` applies its values with `os.environ.setdefault`, so a local
+`.env` or a value configured in the Vercel dashboard always wins over the
+committed values.
 
 For local development create `.env` in the project root with the same keys:
 
@@ -53,9 +64,6 @@ SUPABASE_KEY=sb_publishable_...
 SUPABASE_SERVICE_ROLE_KEY=<service_role JWT>
 FLASK_SECRET_KEY=change-me
 ```
-
-> Never commit `.env` or the `service_role` key. That key bypasses all RLS
-> policies.
 
 ---
 
