@@ -427,6 +427,17 @@ def create_login_layout(error_message=None, success_message=None, username_value
             dbc.Col([
                 html.Div([
                     html.Div([
+                        # Hidden register components so the callback's
+                        # Input('register-button') / State('register-*') always
+                        # resolve, even with the Create Account dialog commented out.
+                        dcc.Input(id='register-username', type='text',
+                                  value='', style={'display': 'none'}),
+                        dcc.Input(id='register-password', type='password',
+                                  value='', style={'display': 'none'}),
+                        dcc.Input(id='register-confirm-password', type='password',
+                                  value='', style={'display': 'none'}),
+                        dbc.Button('Create Account', id='register-button',
+                                   color='success', className='d-none', n_clicks=0),
                         html.H1('Welcome to IBEX-WIRELESS', className='text-center mb-3',
                                 style={'fontWeight': '800', 'color': '#f8fafc'}),
                         html.P('Sign in to continue to the dashboard.',
@@ -461,33 +472,35 @@ def create_login_layout(error_message=None, success_message=None, username_value
                             'boxShadow': '0 20px 40px rgba(0, 0, 0, 0.35)'
                         }),
 
-                        *([] if not SHOW_CREATE_ACCOUNT else [dbc.Card([
-                            dbc.CardBody([
-                                html.H4('Create Account', className='mb-3 text-center',
-                                        style={'color': '#f8fafc'}),
-                                dbc.Label(
-                                    'New User Name', html_for='register-username', style={'color': '#e2e8f0'}),
-                                dbc.Input(id='register-username', type='text', placeholder='Choose a username',
-                                          className='mb-3'),
-                                dbc.Label(
-                                    'New Password', html_for='register-password', style={'color': '#e2e8f0'}),
-                                dbc.Input(id='register-password', type='password', placeholder='Choose a password',
-                                          className='mb-3'),
-                                dbc.Label(
-                                    'Confirm Password', html_for='register-confirm-password', style={'color': '#e2e8f0'}),
-                                dbc.Input(id='register-confirm-password', type='password', placeholder='Confirm your password',
-                                          className='mb-3'),
-                                dbc.Button('Create Account', id='register-button', color='success',
-                                           className='w-100 mt-2', n_clicks=0),
-                            ])
-                        ], style={
-                            'background': '#111827',
-                            'border': '1px solid #334155',
-                            'borderRadius': '20px',
-                            'maxWidth': '420px',
-                            'margin': '0 auto',
-                            'boxShadow': '0 20px 40px rgba(0, 0, 0, 0.35)'
-                        })]),
+                        # --- "Create Account" dialog box (disabled/commented out) ---
+                        # *([] if not SHOW_CREATE_ACCOUNT else [dbc.Card([
+                        #     dbc.CardBody([
+                        #         html.H4('Create Account', className='mb-3 text-center',
+                        #                 style={'color': '#f8fafc'}),
+                        #         dbc.Label(
+                        #             'New User Name', html_for='register-username', style={'color': '#e2e8f0'}),
+                        #         dbc.Input(id='register-username', type='text', placeholder='Choose a username',
+                        #                   className='mb-3'),
+                        #         dbc.Label(
+                        #             'New Password', html_for='register-password', style={'color': '#e2e8f0'}),
+                        #         dbc.Input(id='register-password', type='password', placeholder='Choose a password',
+                        #                   className='mb-3'),
+                        #         dbc.Label(
+                        #             'Confirm Password', html_for='register-confirm-password', style={'color': '#e2e8f0'}),
+                        #         dbc.Input(id='register-confirm-password', type='password', placeholder='Confirm your password',
+                        #                   className='mb-3'),
+                        #         dbc.Button('Create Account', id='register-button', color='success',
+                        #                    className='w-100 mt-2', n_clicks=0),
+                        #     ])
+                        # ], style={
+                        #     'background': '#111827',
+                        #     'border': '1px solid #334155',
+                        #     'borderRadius': '20px',
+                        #     'maxWidth': '420px',
+                        #     'margin': '0 auto',
+                        #     'boxShadow': '0 20px 40px rgba(0, 0, 0, 0.35)'
+                        # })]),
+
 
                     ], style={'paddingTop': '80px', 'paddingBottom': '80px'})
                 ], style={'minHeight': '100vh', 'display': 'flex', 'alignItems': 'center',
