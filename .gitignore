@@ -6,3 +6,6 @@ __pycache__/
 *.pyo
 *.pyd
 .DS_Store
+
+# Accounts live in Supabase now - never commit a local login database again.
+data/auth_users.db

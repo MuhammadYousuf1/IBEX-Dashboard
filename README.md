@@ -10,17 +10,19 @@ Pages: Home, Sales Dashboard, Input Form (Deposit & Expense), Reports.
 
 ## 1. How authentication works
 
-| Layer | Purpose |
+| Store | Purpose |
 |-------|---------|
-| **Supabase `app_users` table** | Primary account store. Passwords are stored as an unsalted `sha256` hash. |
+| **Supabase `app_users` table** | The **only** account store. Passwords are kept as an unsalted `sha256` hash. |
 | **Supabase Auth (GoTrue)** | Optional. Used only when the typed user name is an e-mail address (`sign_in_with_password`). |
-| **SQLite `data/auth_users.db`** | Local fallback / offline development only. |
 
 `app.py` resolves a sign-in in this order:
 
 1. Supabase Auth, if the user name contains `@`
 2. the Supabase `app_users` table
-3. the bundled SQLite file
+
+There is **no local account file**. `data/auth_users.db` was deleted from the
+repository (and is now git-ignored), so the same credentials work locally and on
+the deployment, and no password hashes are published.
 
 > **Row level security is enabled** on `app_users` and `expenses`. The
 > publishable/anon key (`sb_publishable_...`) reads back **zero rows** and cannot
@@ -109,8 +111,7 @@ Open <http://127.0.0.1:8050/>.
 {
   "status": "healthy",
   "serverless": true,
-  "auth_db_path": "/tmp/auth_users.db",
-  "auth_db_writable": true,
+  "accounts_backend": "supabase",
   "supabase": {
     "url_configured": true,
     "publishable_key_configured": true,
@@ -120,12 +121,14 @@ Open <http://127.0.0.1:8050/>.
   },
   "supabase_app_users_reachable": true,
   "supabase_error": null,
-  "data_files": { "sales_update_xlsx": true, "bundled_auth_db": true, "custom_css": true }
+  "accounts_visible": 3,
+  "data_files": { "sales_update_xlsx": true, "custom_css": true }
 }
 ```
 
 If `service_role_key_configured` is `false`, logins and registrations cannot
-read or write `app_users` on the deployment.
+read or write `app_users` on the deployment. If `accounts_visible` is `0` while
+`service_role_key_configured` is `true`, the table is empty or the key is wrong.
 
 ---
 
@@ -160,11 +163,16 @@ are offline-safe.
 
 ## 8. Notes
 
-* `data/` is committed so the read-only Vercel filesystem can still serve the
-  spreadsheet and the SQLite fallback. Vercel has no writable filesystem, so on
-  the deployment the fallback database is copied to `/tmp` and is only a
-  per-instance cache.
-* `data/auth_users.db` contains unsalted password hashes and is public in the
-  repository history. Treat it as compromised and change those passwords (or
-  remove the file from Git) before sharing the repository.
+* `data/` now contains only `SALES UPDATE.xlsx`, which is committed so the
+  read-only Vercel filesystem can still serve the spreadsheet.
+* Accounts live in Supabase, so there is nothing to keep in sync and no
+  credentials are stored in the repository.
+* To change a password without the UI, hash the new password
+  (`python -c "import hashlib;print(hashlib.sha256(b'new-password').hexdigest())"`)
+  and update `app_users.password_hash` for that user in the Supabase table
+  editor. Creating the account through the app's **Create Account** form is the
+  easier route.
+* Passwords are stored as an unsalted `sha256` hash. Anyone who can read the
+  `app_users` table can test guesses offline, so keep row level security enabled
+  and the `service_role` key server-side only.
 

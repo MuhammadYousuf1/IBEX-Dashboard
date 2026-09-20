@@ -8,6 +8,7 @@ The real auth helpers are monkeypatched so the tests never touch Supabase.
 """
 
 import json
+import os
 
 import app as app_module
 from app import app, server
@@ -202,3 +203,53 @@ def test_registration_failure_shows_the_technical_reason(monkeypatch):
     html = _html(response)
     assert 'Unable to create the account.' in html
     assert 'SUPABASE_SERVICE_ROLE_KEY is missing' in html
+
+
+# ---------------------------------------------------------------------------
+# Supabase is the only account store
+# ---------------------------------------------------------------------------
+
+
+def test_no_local_account_database_is_shipped():
+    """The bundled auth_users.db was removed: Supabase holds every account."""
+    assert not os.path.exists(
+        os.path.join(app_module.APP_ROOT, 'data', 'auth_users.db'))
+    assert not hasattr(app_module, 'AUTH_DB_PATH')
+    assert not hasattr(app_module, 'initialize_auth_db')
+    assert not hasattr(app_module, '_sqlite_validate')
+
+
+def test_validate_user_reports_a_missing_supabase_configuration(monkeypatch):
+    monkeypatch.setattr(app_module, 'get_supabase_client', lambda: None)
+    app_module._auth_error = None
+    assert app_module.validate_user('nehal', 'any-password') is False
+    assert 'Supabase is not configured' in app_module._consume_auth_error()
+
+
+def test_user_exists_reports_a_missing_supabase_configuration(monkeypatch):
+    monkeypatch.setattr(app_module, 'get_supabase_client', lambda: None)
+    app_module._auth_error = None
+    assert app_module.user_exists('nehal') is False
+    assert 'Supabase is not configured' in app_module._consume_auth_error()
+
+
+def test_save_user_reports_a_missing_supabase_configuration(monkeypatch):
+    monkeypatch.setattr(app_module, 'get_supabase_client', lambda: None)
+    app_module._auth_error = None
+    assert app_module.save_user('newbie', 'pw12345') is False
+    assert 'Supabase is not configured' in app_module._consume_auth_error()
+
+
+def test_health_endpoint_reports_the_supabase_backend(monkeypatch):
+    """Guards against a local database file creeping back into the health check."""
+    monkeypatch.setattr(app_module, '_probe_supabase_users_table',
+                        lambda: (True, None))
+    monkeypatch.setattr(app_module, '_count_visible_accounts', lambda: 3)
+
+    payload = server.test_client().get('/health').get_json()
+
+    assert payload['accounts_backend'] == 'supabase'
+    assert payload['accounts_visible'] == 3
+    assert payload['supabase_app_users_reachable'] is True
+    assert 'auth_db_path' not in payload
+    assert 'bundled_auth_db' not in payload['data_files']

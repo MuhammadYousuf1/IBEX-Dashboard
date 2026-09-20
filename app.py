@@ -8,10 +8,7 @@ Run with: python app.py
 
 import hashlib
 import os
-import shutil
-import sqlite3
 import sys
-import tempfile
 from flask import Flask, render_template_string, send_from_directory
 from dotenv import load_dotenv
 import dash
@@ -133,7 +130,7 @@ def create_footer():
     )
 
 # ============================================================================
-# AUTH DATABASE (SQLite fallback + optional Supabase support)
+# AUTH DATABASE (Supabase only - no local account file)
 # ============================================================================
 
 
@@ -156,20 +153,8 @@ SUPABASE_PUBLIC_KEY = (os.getenv('SUPABASE_KEY')
 SUPABASE_ADMIN_KEY = (os.getenv('SUPABASE_SERVICE_ROLE_KEY') or '').strip()
 AUTH_TABLE = 'app_users'
 
-# --- Local fallback database ------------------------------------------------
-# Vercel's deployment filesystem is read-only, only the temp directory can be
-# written to. Locally the database stays inside data/.
-ON_SERVERLESS = bool(os.getenv('VERCEL'))
-BUNDLED_AUTH_DB = os.path.join(APP_ROOT, 'data', 'auth_users.db')
-if ON_SERVERLESS:
-    AUTH_DB_PATH = os.path.join(tempfile.gettempdir(), 'auth_users.db')
-    if not os.path.exists(AUTH_DB_PATH) and os.path.exists(BUNDLED_AUTH_DB):
-        try:
-            shutil.copyfile(BUNDLED_AUTH_DB, AUTH_DB_PATH)
-        except Exception:
-            pass
-else:
-    AUTH_DB_PATH = BUNDLED_AUTH_DB
+# There is NO local account database any more: Supabase is the single source of
+# truth for logins, so the same credentials work locally and on Vercel.
 
 # Last technical reason a Supabase call failed. Only used for the on-screen
 # diagnostics while SHOW_AUTH_DIAGNOSTICS is True.
@@ -248,69 +233,21 @@ def supabase_status():
     }
 
 
-def initialize_auth_db():
-    """Create the local fallback table. Never raises on a read-only filesystem."""
-    try:
-        os.makedirs(os.path.dirname(AUTH_DB_PATH), exist_ok=True)
-        conn = sqlite3.connect(AUTH_DB_PATH)
-        conn.execute(
-            '''
-            CREATE TABLE IF NOT EXISTS app_users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            '''
-        )
-        conn.commit()
-        conn.close()
-        return True
-    except Exception as exc:
-        _set_auth_error(f'Local auth database unavailable: {_short_error(exc)}')
-        return False
+def _count_visible_accounts():
+    """Number of `app_users` rows the configured key can actually read.
 
-
-def _sqlite_user_exists(username):
-    """Look a username up in the local fallback database (never raises)."""
+    With the service-role key this is the real number of accounts. With only the
+    publishable key, row level security hides everything and this returns 0,
+    which is the fastest way to spot a misconfigured deployment.
+    """
+    supabase = get_supabase_client()
+    if supabase is None:
+        return None
     try:
-        conn = sqlite3.connect(AUTH_DB_PATH)
-        row = conn.execute(
-            'SELECT 1 FROM app_users WHERE username = ?', (username,)
-        ).fetchone()
-        conn.close()
-        return row is not None
+        result = supabase.table(AUTH_TABLE).select('username').execute()
+        return len(result.data or [])
     except Exception:
-        return False
-
-
-def _sqlite_validate(username, password_hash):
-    """Validate a username/password hash against the local fallback database."""
-    try:
-        conn = sqlite3.connect(AUTH_DB_PATH)
-        row = conn.execute(
-            'SELECT 1 FROM app_users WHERE username = ? AND password_hash = ?',
-            (username, password_hash),
-        ).fetchone()
-        conn.close()
-        return row is not None
-    except Exception:
-        return False
-
-
-def _sqlite_save(username, password_hash):
-    """Store a username/password hash locally (best effort, never raises)."""
-    try:
-        conn = sqlite3.connect(AUTH_DB_PATH)
-        conn.execute(
-            'INSERT OR IGNORE INTO app_users (username, password_hash) VALUES (?, ?)',
-            (username, password_hash),
-        )
-        conn.commit()
-        conn.close()
-        return True
-    except Exception:
-        return False
+        return None
 
 
 def _probe_supabase_users_table():
@@ -339,73 +276,73 @@ def ensure_supabase_users_table():
 
 
 def user_exists(username):
-    """Check whether a username already exists in Supabase or the local database."""
+    """Check whether a username already exists in Supabase."""
     username = (username or '').strip()
     if not username:
         return False
 
     supabase = get_supabase_client()
-    if supabase is not None:
-        try:
-            result = supabase.table(AUTH_TABLE).select(
-                'username').eq('username', username).limit(1).execute()
-            if result.data:
-                return True
-        except Exception as exc:
-            _set_auth_error(f'Could not read `{AUTH_TABLE}`: {_short_error(exc)}')
-
-    return _sqlite_user_exists(username)
-
-
-def save_user(username, password):
-    """Save a username/password pair to Supabase (SQLite is only a fallback)."""
-    username = (username or '').strip()
-    password = (password or '').strip()
-    if not username or not password:
-        return False
-
-    hashed_password = hash_password(password)
-    supabase = get_supabase_client()
-
     if supabase is None:
         _set_auth_error(
             'Supabase is not configured on this server: SUPABASE_URL and/or '
             'SUPABASE_SERVICE_ROLE_KEY are missing from the environment.'
         )
-    else:
-        if not SUPABASE_ADMIN_KEY:
-            _set_auth_error(
-                'SUPABASE_SERVICE_ROLE_KEY is missing on this server. The '
-                'publishable key cannot write to app_users because row level '
-                'security is enabled.'
-            )
-        try:
-            # `created_at` is deliberately not sent so the database default is
-            # preserved instead of being rewritten on every upsert.
-            supabase.table(AUTH_TABLE).upsert({
-                'username': username,
-                'password_hash': hashed_password,
-            }, on_conflict='username').execute()
-            _sqlite_save(username, hashed_password)  # warm-instance cache
-            return True
-        except Exception as exc:
-            _set_auth_error(f'Supabase rejected the new account: {_short_error(exc)}')
-
-    if ON_SERVERLESS:
-        # Never report success from the ephemeral /tmp database: the account
-        # would silently disappear after the next cold start.
         return False
-    return _sqlite_save(username, hashed_password)
+
+    try:
+        result = supabase.table(AUTH_TABLE).select(
+            'username').eq('username', username).limit(1).execute()
+        return bool(result.data)
+    except Exception as exc:
+        _set_auth_error(f'Could not read `{AUTH_TABLE}`: {_short_error(exc)}')
+        return False
 
 
-def validate_user(username, password):
-    """Validate a sign-in against Supabase Auth, Supabase `app_users` or SQLite."""
+def save_user(username, password):
+    """Create or update an account in Supabase. Returns True only on success."""
     username = (username or '').strip()
     password = (password or '').strip()
     if not username or not password:
         return False
 
-    expected_hash = hash_password(password)
+    supabase = get_supabase_client()
+    if supabase is None:
+        _set_auth_error(
+            'Supabase is not configured on this server: SUPABASE_URL and/or '
+            'SUPABASE_SERVICE_ROLE_KEY are missing from the environment.'
+        )
+        return False
+
+    if not SUPABASE_ADMIN_KEY:
+        _set_auth_error(
+            'SUPABASE_SERVICE_ROLE_KEY is missing on this server. The '
+            'publishable key cannot write to app_users because row level '
+            'security is enabled.'
+        )
+
+    try:
+        # `created_at` is deliberately not sent so the database default is
+        # preserved instead of being rewritten on every upsert.
+        supabase.table(AUTH_TABLE).upsert({
+            'username': username,
+            'password_hash': hash_password(password),
+        }, on_conflict='username').execute()
+        return True
+    except Exception as exc:
+        _set_auth_error(f'Supabase rejected the new account: {_short_error(exc)}')
+        return False
+
+
+def validate_user(username, password):
+    """Validate a sign-in against Supabase Auth or the Supabase `app_users` table.
+
+    Supabase is the only account store, so a failure here always means either a
+    wrong password or a Supabase/configuration problem - never a stale local file.
+    """
+    username = (username or '').strip()
+    password = (password or '').strip()
+    if not username or not password:
+        return False
 
     # 1) Supabase Auth (only meaningful when the user typed an e-mail address).
     if '@' in username:
@@ -424,63 +361,31 @@ def validate_user(username, password):
     supabase = get_supabase_client()
     if supabase is None:
         _set_auth_error(
-            'Supabase is not configured on this server, so only the bundled '
-            'local account database could be checked.'
+            'Supabase is not configured on this server (SUPABASE_URL and '
+            'SUPABASE_SERVICE_ROLE_KEY are missing), so no account could be checked.'
         )
-    else:
-        try:
-            result = supabase.table(AUTH_TABLE).select(
-                'username, password_hash').eq('username', username).execute()
-            rows = result.data or []
-            for row in rows:
-                if row.get('password_hash') == expected_hash:
-                    return True
-            if not rows and not SUPABASE_ADMIN_KEY:
-                _set_auth_error(
-                    'Supabase returned no row for this user. Row level security '
-                    'requires SUPABASE_SERVICE_ROLE_KEY on the server.'
-                )
-        except Exception as exc:
-            _set_auth_error(f'Could not read `{AUTH_TABLE}`: {_short_error(exc)}')
-
-    # 3) Local fallback database.
-    return _sqlite_validate(username, expected_hash)
-
-
-initialize_auth_db()
-
-
-def sync_local_auth_to_supabase():
-    """Mirror the local auth database into Supabase if credentials are configured."""
-    if ON_SERVERLESS:
-        # Only a best-effort cache lives in /tmp there, nothing worth pushing.
         return False
 
-    supabase = get_supabase_client()
-    if supabase is None or not SUPABASE_ADMIN_KEY:
-        return False
-
+    expected_hash = hash_password(password)
     try:
-        conn = sqlite3.connect(AUTH_DB_PATH)
-        rows = conn.execute(
-            'SELECT username, password_hash FROM app_users ORDER BY id'
-        ).fetchall()
-        conn.close()
-
-        for username, password_hash in rows:
-            # `created_at` is omitted so the original creation time is kept.
-            supabase.table(AUTH_TABLE).upsert({
-                'username': username,
-                'password_hash': password_hash,
-            }, on_conflict='username').execute()
-        return True
+        result = supabase.table(AUTH_TABLE).select(
+            'username, password_hash').eq('username', username).execute()
+        rows = result.data or []
+        for row in rows:
+            if row.get('password_hash') == expected_hash:
+                return True
+        if not rows and not SUPABASE_ADMIN_KEY:
+            _set_auth_error(
+                'SUPABASE_SERVICE_ROLE_KEY is missing on this server, so row '
+                'level security hides every row of app_users.'
+            )
     except Exception as exc:
-        _set_auth_error(f'Could not sync local users to Supabase: {_short_error(exc)}')
-        return False
+        _set_auth_error(f'Could not read `{AUTH_TABLE}`: {_short_error(exc)}')
+
+    return False
 
 
 ensure_supabase_users_table()
-sync_local_auth_to_supabase()
 _auth_error = None  # startup probes must not show up on the login screen
 
 # ============================================================================
@@ -754,31 +659,27 @@ def authenticate_user(login_clicks, logout_clicks, logout_visible_clicks, regist
 
 @server.route('/health')
 def health_check():
-    """Liveness probe plus a secret-free summary of the auth/data wiring.
+    """Liveness probe plus a secret-free summary of the Supabase wiring.
 
     Useful right after a deploy: open /health on the live site to see whether
-    Supabase is configured and whether the data files were bundled.
+    Supabase is configured, how many accounts are visible and whether the data
+    files were bundled.
     """
     reachable, table_error = _probe_supabase_users_table()
-    try:
-        db_writable = os.access(os.path.dirname(AUTH_DB_PATH) or '.', os.W_OK)
-    except Exception:
-        db_writable = False
 
     return {
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
-        'serverless': ON_SERVERLESS,
+        'serverless': bool(os.getenv('VERCEL')),
         'python': sys.version.split()[0],
-        'auth_db_path': AUTH_DB_PATH,
-        'auth_db_writable': db_writable,
+        'accounts_backend': 'supabase',
         'supabase': supabase_status(),
         'supabase_app_users_reachable': reachable,
         'supabase_error': table_error,
+        'accounts_visible': _count_visible_accounts(),
         'data_files': {
             'sales_update_xlsx': os.path.exists(
                 os.path.join(APP_ROOT, 'data', 'SALES UPDATE.xlsx')),
-            'bundled_auth_db': os.path.exists(BUNDLED_AUTH_DB),
             'custom_css': os.path.exists(
                 os.path.join(APP_ROOT, 'assets', 'custom.css')),
         },
