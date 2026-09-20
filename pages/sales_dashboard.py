@@ -1267,7 +1267,7 @@ else:
                 ], xs=12, lg=12, className='mb-4'),
 
                 
-                # Tables: Accessories Analysis
+                                # Tables: By Store Analysis
                 dbc.Row([
                     dbc.Col([
                         dbc.Card([
@@ -1292,13 +1292,13 @@ else:
                         dbc.Card([
                             dbc.CardHeader([
                                 html.H5([
-                                    html.I(className='fas fa-tag me-2',
-                                           style={'color': '#00ff51'}),
-                                    'Highest Accessories by Product'
+                                    html.I(className='fas fa-user me-2',
+                                           style={'color': '#ef4444'}),
+                                    'Highest Activations by Store'
                                 ], className='mb-0', style={'color': '#f8fafc'})
                             ], style={'background': 'transparent', 'borderBottom': '1px solid #334155'}),
                             dbc.CardBody([
-                                html.Div(id='accessory-by-product-table',
+                                html.Div(id='activation-by-store-table',
                                          style={'minHeight': '150px'})
                             ], className='p-3')
                         ], style={
@@ -1308,19 +1308,19 @@ else:
                         })
                     ], xs=12, md=6, className='mb-4'),
                 ]),
-                # Tables: Activations Analysis
+                # Tables: By Product Analysis
                 dbc.Row([
                     dbc.Col([
                         dbc.Card([
                             dbc.CardHeader([
                                 html.H5([
-                                    html.I(className='fas fa-user me-2',
-                                           style={'color': '#ef4444'}),
-                                    'Highest Activations by Store'
+                                    html.I(className='fas fa-tag me-2',
+                                           style={'color': '#00ff51'}),
+                                    'Highest Accessories by Product'
                                 ], className='mb-0', style={'color': '#f8fafc'})
                             ], style={'background': 'transparent', 'borderBottom': '1px solid #334155'}),
                             dbc.CardBody([
-                                html.Div(id='activation-by-store-table',
+                                html.Div(id='accessory-by-product-table',
                                          style={'minHeight': '150px'})
                             ], className='p-3')
                         ], style={
@@ -1349,8 +1349,8 @@ else:
                         })
                     ], xs=12, md=6, className='mb-4'),
                 ]),
+           ]),
 
-            ]),
 
             dbc.Row([
                 # Bar Chart - Top Stores
