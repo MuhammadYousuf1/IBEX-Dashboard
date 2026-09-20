@@ -1265,6 +1265,49 @@ else:
                         'borderRadius': '20px'
                     })
                 ], xs=12, lg=12, className='mb-4'),
+
+                
+                # Tables: Accessories Analysis
+                dbc.Row([
+                    dbc.Col([
+                        dbc.Card([
+                            dbc.CardHeader([
+                                html.H5([
+                                    html.I(className='fas fa-store me-2',
+                                           style={'color': '#8b5cf6'}),
+                                    'Highest Accessories by Store'
+                                ], className='mb-0', style={'color': '#f8fafc'})
+                            ], style={'background': 'transparent', 'borderBottom': '1px solid #334155'}),
+                            dbc.CardBody([
+                                html.Div(id='accessory-by-store-table',
+                                         style={'minHeight': '150px'})
+                            ], className='p-3')
+                        ], style={
+                            'background': '#1e293b',
+                            'border': '1px solid #334155',
+                            'borderRadius': '20px'
+                        })
+                    ], xs=12, md=6, className='mb-4'),
+                    dbc.Col([
+                        dbc.Card([
+                            dbc.CardHeader([
+                                html.H5([
+                                    html.I(className='fas fa-tag me-2',
+                                           style={'color': '#00ff51'}),
+                                    'Highest Accessories by Product'
+                                ], className='mb-0', style={'color': '#f8fafc'})
+                            ], style={'background': 'transparent', 'borderBottom': '1px solid #334155'}),
+                            dbc.CardBody([
+                                html.Div(id='accessory-by-product-table',
+                                         style={'minHeight': '150px'})
+                            ], className='p-3')
+                        ], style={
+                            'background': '#1e293b',
+                            'border': '1px solid #334155',
+                            'borderRadius': '20px'
+                        })
+                    ], xs=12, md=6, className='mb-4'),
+                ]),
             ]),
 
             dbc.Row([
@@ -1398,6 +1441,8 @@ else:
         Output('trend-chart', 'figure'),
         Output('trend-daily-chart', 'figure'),
         Output('bts-pie-chart', 'figure'),
+        Output('accessory-by-store-table', 'children'),
+        Output('accessory-by-product-table', 'children'),
         Input('apply-filters-btn', 'n_clicks'),
         State('store-filter', 'value'),
         State('marketid-filter', 'value'),
@@ -1415,7 +1460,7 @@ else:
                 plot_bgcolor='rgba(0,0,0,0)',
                 font_color='#94a3b8'
             )
-            return '0', '0', '0', '0', f'{BILL_PAY_COUNT:,}', f'${BILL_REV:,.2f}', '', '', '', 'PROT ATT% n/a', '', '', '', empty_fig, empty_fig, empty_fig
+            return '0', '0', '0', '0', f'{BILL_PAY_COUNT:,}', f'${BILL_REV:,.2f}', '', '', '', 'PROT ATT% n/a', '', '', '', empty_fig, empty_fig, empty_fig, html.Div('No data', style={'color': '#64748b'}), html.Div('No data', style={'color': '#64748b'})
 
         # Apply filters
         filtered = sd.filter_data(
@@ -1430,7 +1475,7 @@ else:
                 annotations=[dict(text='No data available',
                                   showarrow=False, font_size=20)]
             )
-            return '0', '0', '0', '0', f'{BILL_PAY_COUNT:,}', f'${BILL_REV:,.2f}', '', '', '', 'PROT ATT% n/a', '', '', '', empty_fig, empty_fig, empty_fig
+            return '0', '0', '0', '0', f'{BILL_PAY_COUNT:,}', f'${BILL_REV:,.2f}', '', '', '', 'PROT ATT% n/a', '', '', '', empty_fig, empty_fig, empty_fig, html.Div('No data', style={'color': '#64748b'}), html.Div('No data', style={'color': '#64748b'})
 
         # Calculate KPIs
         kpis = sd.calculate_kpis(filtered)
@@ -1796,7 +1841,7 @@ else:
             _inner_text_size = 10 * _label_scale
             _pad = 0.015
             _title_y = 0.99       # top of each donut's KPI-name title
-            _donut_titles = []    # one title annotation per donut
+            _kpi_labels = []    # dedicated KPI labels at bottom
             for _idx, _pair in enumerate(bts_pairs):
                 _x0 = _idx / _n_cols + _pad
                 _x1 = (_idx + 1) / _n_cols - _pad
@@ -1816,17 +1861,17 @@ else:
                 # the title ties straight back to the arcs. The two names are
                 # separated by a space only (no '+'); the coloured markers
                 # already make it clear which name belongs to which ring.
-                _donut_titles.append(dict(
+                _kpi_labels.append(dict(
                     x=_cx, y=_title_y, xref='paper', yref='paper',
                     xanchor='center', yanchor='top', showarrow=False,
                     align='center',
                     text=(
                         f'<span style="color:{_ring_colors(_idx, 0, 1)[0]}">'
-                        f'\u25cf <b>{_pair["outer"][0]}</b></span> '
-                        f'<span style="color:{_ring_colors(_idx, 1, 1)[0]}">'
-                        f'\u25cf <b>{_pair["inner"][0]}</b></span>'
+                        f'\u25cf <b>{_pair["outer"][0]}:</b> {_pair["outer"][2]}'
+                        f'  <span style="color:{_ring_colors(_idx, 1, 1)[0]}">'
+                        f'\u25cf <b>{_pair["inner"][0]}:</b> {_pair["inner"][2]}</span>'
                     ),
-                    font=dict(size=12, color='#f8fafc'),
+                    font=dict(size=10, color='#f8fafc'),
                 ))
 
                 # Outer ring fills the column; the inner ring is the same shape
@@ -1875,12 +1920,51 @@ else:
                 plot_bgcolor='rgba(0,0,0,0)',
                 font_color='#e2e8f0',
                 showlegend=False,
-                # KPI-name titles, one per donut (built in the loop above):
-                # every KPI shown in this card is named on its own donut.
-                annotations=_donut_titles,
+                # KPI labels at the bottom (built in the loop above):
+                # every KPI shown in this card is named below its donut.
+                annotations=_kpi_labels,
                 margin=dict(l=10, r=10, t=10, b=10),
             )
 
+
+        # --- Generate accessory tables ---
+        def _create_accessory_table(df, group_col, value_col, n=10):
+            """Create a table of top N stores/products by accessory sales."""
+            if df is None or df.empty or group_col not in df.columns:
+                return html.Div('No data available', style={'color': '#64748b'})
+            
+            # Group by store/product and sum accessories
+            grouped = df.groupby(group_col)[value_col].sum().sort_values(ascending=False)
+            top_n = grouped.head(n)
+            
+            if top_n.empty:
+                return html.Div('No data available', style={'color': '#64748b'})
+            
+            # Create table rows
+            table_rows = []
+            for idx, (name, value) in enumerate(top_n.items(), 1):
+                table_rows.append(html.Tr([
+                    html.Td(idx, style={'color': '#94a3b8', 'padding': '8px 12px'}),
+                    html.Td(str(name), style={'color': '#f8fafc', 'padding': '8px 12px', 'fontWeight': '500'}),
+                    html.Td(f'${value:,.2f}', style={'color': '#00ff51', 'padding': '8px 12px', 'fontWeight': 'bold', 'textAlign': 'right'}),
+                ]))
+            
+            return dbc.Table([
+                html.Thead(html.Tr([
+                    html.Th('#', style={'color': '#94a3b8', 'padding': '8px 12px', 'fontSize': '0.85rem'}),
+                    html.Th(group_col, style={'color': '#94a3b8', 'padding': '8px 12px', 'fontSize': '0.85rem'}),
+                    html.Th('Total Sales', style={'color': '#94a3b8', 'padding': '8px 12px', 'fontSize': '0.85rem', 'textAlign': 'right'}),
+                ])),
+                html.Tbody(table_rows)
+            ], striped=True, hover=True, style={
+                'background': 'transparent',
+                'border': 'none',
+                'borderRadius': '10px',
+                'overflow': 'hidden',
+            }, className='mb-0')
+        
+        store_table = _create_accessory_table(acc_f, 'STORE', SDT_COL_TOTAL_SALES)
+        product_table = _create_accessory_table(acc_f, SDT_COL_PRODUCT_DESC, SDT_COL_TOTAL_SALES)
         return (
             _dp_val,
             _act_val,
@@ -1900,6 +1984,8 @@ else:
             trend_fig,
             trend_daily_fig,
             bts_pie_fig,
+            store_table,
+            product_table,
         )
 
     @callback(
