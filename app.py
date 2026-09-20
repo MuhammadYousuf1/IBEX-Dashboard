@@ -218,7 +218,7 @@ def user_exists(username):
 
 
 def save_user(username, password):
-    """Save a username/password pair directly to Supabase, with SQLite as fallback."""
+    """Save a username/password pair to the configured auth store."""
     username = (username or '').strip()
     password = (password or '').strip()
     if not username or not password:
@@ -234,17 +234,25 @@ def save_user(username, password):
                 'password_hash': hashed_password,
                 'created_at': datetime.utcnow().isoformat()
             }, on_conflict='username').execute()
-            # Keep local DB synced for fallback, but do not block Supabase success.
-            conn = sqlite3.connect(AUTH_DB_PATH)
-            conn.execute(
-                'INSERT OR IGNORE INTO app_users (username, password_hash) VALUES (?, ?)',
-                (username, hashed_password),
-            )
-            conn.commit()
-            conn.close()
+            # Vercel's deployed filesystem is read-only; local sync is optional.
+            if not os.getenv('VERCEL'):
+                try:
+                    conn = sqlite3.connect(AUTH_DB_PATH)
+                    conn.execute(
+                        'INSERT OR IGNORE INTO app_users (username, password_hash) VALUES (?, ?)',
+                        (username, hashed_password),
+                    )
+                    conn.commit()
+                    conn.close()
+                except Exception:
+                    pass
             return True
         except Exception:
-            pass
+            if os.getenv('VERCEL'):
+                return False
+
+    if os.getenv('VERCEL'):
+        return False
 
     conn = sqlite3.connect(AUTH_DB_PATH)
     conn.execute(
