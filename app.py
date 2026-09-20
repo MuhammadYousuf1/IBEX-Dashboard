@@ -24,8 +24,8 @@ from datetime import datetime, timedelta
 # Add current directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Set to False to hide the registration form while keeping the login form visible.
-SHOW_CREATE_ACCOUNT = False
+# Set to True to show the registration form below the login form.
+SHOW_CREATE_ACCOUNT = True
 
 # Import shared data module (after Dash creation so the merged page's
 # register_page/callbacks are collected by the pages plugin correctly)
@@ -37,7 +37,7 @@ SHOW_CREATE_ACCOUNT = False
 server = Flask(__name__,
                template_folder='templates',
                static_folder='assets')
-server.secret_key = 'your-secret-key-change-in-production'
+server.secret_key = os.getenv('FLASK_SECRET_KEY', 'local-development-secret-key')
 
 # ============================================================================
 # DASH APP SETUP WITH PAGES
@@ -257,7 +257,7 @@ def save_user(username, password):
 
 
 def validate_user(username, password):
-    """Check if a username/password pair matches a saved record in Supabase first."""
+    """Check custom app users and Supabase Auth credentials."""
     username = (username or '').strip()
     password = (password or '').strip()
     if not username or not password:
@@ -267,6 +267,17 @@ def validate_user(username, password):
 
     supabase = get_supabase_client()
     if supabase:
+        # Support users created in Supabase Authentication as well as the
+        # application's legacy app_users table.
+        try:
+            supabase.auth.sign_in_with_password({
+                'email': username,
+                'password': password,
+            })
+            return True
+        except Exception:
+            pass
+
         try:
             result = supabase.table('app_users').select(
                 '*').eq('username', username).execute()
