@@ -1424,8 +1424,10 @@ else:
                                style={'color': '#6366f1'}),
                         'Sales Dashboard'
                     ], className='fw-bold mb-2', style={'color': '#f8fafc'}),
-                    html.P('Real-time sales performance analytics and insights',
-                           style={'color': '#94a3b8'})
+                    # Data freshness note - change the date text below to update it
+                    html.P('Last updated 09/20/2026',
+                           className='mb-0',
+                           style={'color': "#ffffff", 'fontSize': '1rem'})
                 ], className='mb-4')
             ], width=12)
         ]),
