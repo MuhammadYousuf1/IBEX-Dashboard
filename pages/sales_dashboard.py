@@ -1425,7 +1425,7 @@ else:
                         'Sales Dashboard'
                     ], className='fw-bold mb-2', style={'color': '#f8fafc'}),
                     # Data freshness note - change the date text below to update it
-                    html.P('Last updated 09/20/2026',
+                    html.P('Last updated 09/21/2026',
                            className='mb-0',
                            style={'color': "#ffffff", 'fontSize': '1rem'})
                 ], className='mb-4')
